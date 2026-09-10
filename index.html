@@ -8,82 +8,89 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 
+:root{
+  --bg:#d8d0c4;
+  --btn:#8b4d22;
+}
+
 html,body{
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:#d9d2c7;
-    font-family:"Noto Sans TC",sans-serif;
+  width:100%;
+  min-height:100%;
+}
+
+body{
+  background:var(--bg);
+  font-family:"Noto Sans TC",sans-serif;
 }
 
 .viewer{
-    width:100vw;
-    height:100dvh;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    padding:12px;
-    gap:16px;
+  width:100%;
+  min-height:100svh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px 12px calc(20px + env(safe-area-inset-bottom));
 }
 
 .book{
-    flex:1;
-    width:100%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  margin:8px 0 18px;
 }
 
 .spread{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:0;
-    filter:drop-shadow(0 18px 35px rgba(0,0,0,.3));
+  display:flex;
+  gap:0;
+  filter:drop-shadow(0 18px 28px rgba(0,0,0,.28));
 }
 
 .page{
-    width:min(42vw,495px);
-    aspect-ratio:210/297;
-    background:white;
+  width:min(42vw,495px);
+  aspect-ratio:210/297;
+  background:white;
+  overflow:hidden;
 }
 
 .page img{
-    width:100%;
-    height:100%;
-    display:block;
-    object-fit:cover;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
 }
 
 .single .page{
-    width:min(70vw,495px);
+  width:min(70vw,495px);
 }
 
 .controls{
-    display:flex;
-    align-items:center;
-    gap:16px;
-    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  display:flex;
+  align-items:center;
+  gap:18px;
 }
 
 button{
-    width:58px;
-    height:58px;
-    border:none;
-    border-radius:50%;
-    background:#8a4b23;
-    color:white;
-    font-size:28px;
+  width:58px;
+  height:58px;
+  border:none;
+  border-radius:50%;
+  background:var(--btn);
+  color:white;
+  font-size:28px;
+  cursor:pointer;
+}
+
+button:disabled{
+  opacity:.4;
 }
 
 .counter{
-    background:white;
-    border-radius:24px;
-    padding:12px 24px;
-    min-width:120px;
-    text-align:center;
-    font-size:20px;
+  background:white;
+  border-radius:22px;
+  min-width:120px;
+  text-align:center;
+  padding:12px 24px;
+  font-size:20px;
 }
 
 /* 手機 */
@@ -91,42 +98,48 @@ button{
 @media (max-width:768px){
 
 .viewer{
-    height:100dvh;
+  justify-content:flex-start;
+  padding-top:14px;
 }
 
 .book{
-    width:100%;
+  margin-top:0;
 }
 
 .spread{
-    flex-direction:column;
+  flex-direction:column;
 }
 
 .page{
-    width:min(94vw,495px);
+  width:min(94vw,495px);
 }
 
 .page img{
-    object-fit:contain;
+  object-fit:contain;
 }
 
 .spread .page:nth-child(2){
-    display:none;
+  display:none;
 }
 
 .single .page{
-    width:min(94vw,495px);
+  width:min(94vw,495px);
+}
+
+.controls{
+  margin-top:10px;
 }
 
 button{
-    width:54px;
-    height:54px;
-    font-size:24px;
+  width:54px;
+  height:54px;
+  font-size:24px;
 }
 
 .counter{
-    font-size:18px;
+  font-size:18px;
 }
+
 }
 </style>
 </head>
@@ -135,15 +148,15 @@ button{
 
 <div class="viewer">
 
-<div class="book">
-<div id="spread" class="spread"></div>
-</div>
+  <div class="book">
+    <div id="spread" class="spread"></div>
+  </div>
 
-<div class="controls">
-<button id="prev">←</button>
-<div id="counter" class="counter"></div>
-<button id="next">→</button>
-</div>
+  <div class="controls">
+    <button id="prev">←</button>
+    <div id="counter" class="counter">1 / 20</div>
+    <button id="next">→</button>
+  </div>
 
 </div>
 
@@ -152,94 +165,81 @@ const TOTAL=20;
 const spreads=[[1]];
 
 for(let i=2;i<=TOTAL;i+=2){
-    spreads.push(i+1<=TOTAL?[i,i+1]:[i]);
+  spreads.push(i+1<=TOTAL?[i,i+1]:[i]);
 }
 
 let current=0;
+
 const spread=document.getElementById("spread");
 const counter=document.getElementById("counter");
+const prev=document.getElementById("prev");
+const next=document.getElementById("next");
 
 function render(){
 
-    const mobile=window.innerWidth<=768;
-    const pages=spreads[current];
+  const mobile=window.innerWidth<=768;
+  const pages=spreads[current];
 
-    spread.className=pages.length===1?"spread single":"spread";
-    spread.innerHTML="";
+  spread.className=pages.length===1?"spread single":"spread";
+  spread.innerHTML="";
 
-    (mobile?[pages[0]]:pages).forEach(p=>{
+  const list=mobile?[pages[0]]:pages;
 
-        const page=document.createElement("div");
-        page.className="page";
+  list.forEach(n=>{
 
-        const img=document.createElement("img");
-        img.src=p+".png";
+    const p=document.createElement("div");
+    p.className="page";
 
-        img.onload=()=>{
-            requestAnimationFrame(()=>window.dispatchEvent(new Event("resize")));
-        };
+    const img=document.createElement("img");
+    img.src=n+".png";
+    img.alt="Page "+n;
+    img.loading="eager";
 
-        page.appendChild(img);
-        spread.appendChild(page);
-    });
+    p.appendChild(img);
+    spread.appendChild(p);
+  });
 
-    counter.textContent=`${pages[0]} / ${TOTAL}`;
-
-    prev.disabled=current===0;
-    next.disabled=current===spreads.length-1;
+  counter.textContent=`${pages[0]} / ${TOTAL}`;
+  prev.disabled=current===0;
+  next.disabled=current===spreads.length-1;
 }
 
 function nextPage(){
-    if(current<spreads.length-1){
-        current++;
-        render();
-    }
+  if(current<spreads.length-1){
+    current++;
+    render();
+  }
 }
 
 function prevPage(){
-    if(current>0){
-        current--;
-        render();
-    }
+  if(current>0){
+    current--;
+    render();
+  }
 }
 
 next.onclick=nextPage;
 prev.onclick=prevPage;
 
 window.addEventListener("keydown",e=>{
-    if(e.key==="ArrowRight")nextPage();
-    if(e.key==="ArrowLeft")prevPage();
+  if(e.key==="ArrowRight")nextPage();
+  if(e.key==="ArrowLeft")prevPage();
 });
 
 let startX=0;
 
 document.querySelector(".book").addEventListener("touchstart",e=>{
-    startX=e.touches[0].clientX;
-});
+  startX=e.touches[0].clientX;
+},{passive:true});
 
 document.querySelector(".book").addEventListener("touchend",e=>{
-    const dx=e.changedTouches[0].clientX-startX;
-    if(dx<-60)nextPage();
-    if(dx>60)prevPage();
-});
+  const dx=e.changedTouches[0].clientX-startX;
+  if(dx<-60)nextPage();
+  if(dx>60)prevPage();
+},{passive:true});
 
-/* iPhone 修正 */
-
-window.addEventListener("resize",()=>{
-    document.querySelector(".viewer").style.height=window.innerHeight+"px";
-});
-
-window.addEventListener("orientationchange",()=>{
-    setTimeout(()=>{
-        document.querySelector(".viewer").style.height=window.innerHeight+"px";
-        render();
-    },250);
-});
-
-window.addEventListener("load",()=>{
-    document.querySelector(".viewer").style.height=window.innerHeight+"px";
-    setTimeout(render,120);
-});
+window.addEventListener("resize",render);
+window.addEventListener("orientationchange",()=>setTimeout(render,150));
 
 render();
 </script>
