@@ -1,66 +1,82 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>光與鹽｜09-2026</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>光與鹽｜09·2026</title>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
-
-:root{
-  --bg:#d8d0c4;
-  --btn:#8b4d22;
-}
-
-html,body{
-  width:100%;
-  min-height:100%;
-}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;width:100%}
 
 body{
-  background:var(--bg);
+  background:#d8d0c5;
+  overflow:hidden;
   font-family:"Noto Sans TC",sans-serif;
 }
 
 .viewer{
-  width:100%;
-  min-height:100svh;
+  height:100dvh;
   display:flex;
   flex-direction:column;
+  justify-content:center;
   align-items:center;
-  padding:20px 12px calc(20px + env(safe-area-inset-bottom));
+  gap:16px;
+  padding:10px;
 }
 
 .book{
-  width:100%;
-  display:flex;
-  justify-content:center;
-  margin:8px 0 18px;
+  position:relative;
+  width:min(96vw,1200px);
+  height:min(84dvh,900px);
+  perspective:2600px;
 }
 
-.spread{
+.sheet{
+  position:absolute;
+  inset:0;
+  transform-origin:left center;
+  transform-style:preserve-3d;
+  transition:transform .95s cubic-bezier(.22,.61,.36,1);
+}
+
+.face{
+  position:absolute;
+  inset:0;
   display:flex;
-  gap:0;
-  filter:drop-shadow(0 18px 28px rgba(0,0,0,.28));
+  backface-visibility:hidden;
+}
+
+.back{
+  transform:rotateY(180deg);
 }
 
 .page{
-  width:min(42vw,495px);
-  aspect-ratio:210/297;
+  width:50%;
+  height:100%;
   background:white;
   overflow:hidden;
+  position:relative;
 }
 
 .page img{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
   display:block;
 }
 
-.single .page{
-  width:min(70vw,495px);
+.face::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(0,0,0,.18),transparent 18%,transparent 82%,rgba(0,0,0,.08));
+}
+
+.sheet.flipped{
+  transform:rotateY(-180deg);
 }
 
 .controls{
@@ -70,75 +86,61 @@ body{
 }
 
 button{
-  width:58px;
-  height:58px;
+  width:62px;
+  height:62px;
   border:none;
   border-radius:50%;
-  background:var(--btn);
+  background:#8a4a21;
   color:white;
   font-size:28px;
   cursor:pointer;
 }
 
-button:disabled{
-  opacity:.4;
-}
-
 .counter{
-  background:white;
-  border-radius:22px;
-  min-width:120px;
-  text-align:center;
+  background:#f4f1ee;
+  border-radius:26px;
   padding:12px 24px;
-  font-size:20px;
+  min-width:130px;
+  text-align:center;
+  font-size:22px;
 }
 
-/* 手機 */
+@media(max-width:900px){
 
-@media (max-width:768px){
+  body{overflow:hidden;}
 
-.viewer{
-  justify-content:flex-start;
-  padding-top:14px;
-}
+  .viewer{
+    height:100svh;
+    padding:
+      calc(env(safe-area-inset-top)+8px)
+      8px
+      calc(env(safe-area-inset-bottom)+8px);
+  }
 
-.book{
-  margin-top:0;
-}
+  .book{
+    width:min(94vw,620px);
+    height:min(82svh,820px);
+  }
 
-.spread{
-  flex-direction:column;
-}
+  .face{
+    display:block;
+  }
 
-.page{
-  width:min(94vw,495px);
-}
+  .page{
+    width:100%;
+  }
 
-.page img{
-  object-fit:contain;
-}
+  .face .page:first-child{
+    display:none;
+  }
 
-.spread .page:nth-child(2){
-  display:none;
-}
+  .sheet{
+    transform-origin:center center;
+  }
 
-.single .page{
-  width:min(94vw,495px);
-}
-
-.controls{
-  margin-top:10px;
-}
-
-button{
-  width:54px;
-  height:54px;
-  font-size:24px;
-}
-
-.counter{
-  font-size:18px;
-}
+  .sheet.flipped{
+    transform:translateX(-8px) rotateY(-180deg);
+  }
 
 }
 </style>
@@ -148,100 +150,185 @@ button{
 
 <div class="viewer">
 
-  <div class="book">
-    <div id="spread" class="spread"></div>
-  </div>
+  <div id="book" class="book"></div>
 
   <div class="controls">
     <button id="prev">←</button>
-    <div id="counter" class="counter">1 / 20</div>
+    <div id="counter" class="counter"></div>
     <button id="next">→</button>
   </div>
 
 </div>
 
 <script>
-const TOTAL=20;
-const spreads=[[1]];
+const pages=[...Array(20)].map((_,i)=>`${i+1}.png`);
+const book=document.getElementById("book");
+const counter=document.getElementById("counter");
 
-for(let i=2;i<=TOTAL;i+=2){
-  spreads.push(i+1<=TOTAL?[i,i+1]:[i]);
+let mobile=()=>window.innerWidth<=900;
+let index=0;
+let sheets=[];
+
+function flipSound(){
+
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+
+    o.type="triangle";
+    o.frequency.value=850;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    g.gain.value=.018;
+
+    o.start();
+
+    g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.08);
+
+    o.stop(ctx.currentTime+.08);
+  }catch(e){}
 }
 
-let current=0;
+function makePage(src){
+  return `<div class="page"><img src="${src}" loading="eager"></div>`;
+}
 
-const spread=document.getElementById("spread");
-const counter=document.getElementById("counter");
-const prev=document.getElementById("prev");
-const next=document.getElementById("next");
+function build(){
+
+  book.innerHTML="";
+  sheets=[];
+
+  if(mobile()){
+
+    for(let i=0;i<pages.length;i++){
+
+      const sheet=document.createElement("div");
+      sheet.className="sheet";
+
+      sheet.innerHTML=`
+        <div class="face">
+          ${makePage("")}
+          ${makePage(pages[i])}
+        </div>`;
+
+      book.appendChild(sheet);
+      sheets.push(sheet);
+    }
+
+  }else{
+
+    for(let i=0;i<pages.length;i+=2){
+
+      const sheet=document.createElement("div");
+      sheet.className="sheet";
+
+      sheet.innerHTML=`
+        <div class="face">
+          ${makePage(pages[i])}
+          ${pages[i+1]?makePage(pages[i+1]):'<div class="page"></div>'}
+        </div>
+
+        <div class="face back">
+          ${pages[i+2]?makePage(pages[i+2]):'<div class="page"></div>'}
+          ${pages[i+3]?makePage(pages[i+3]):'<div class="page"></div>'}
+        </div>`;
+
+      book.appendChild(sheet);
+      sheets.push(sheet);
+    }
+
+  }
+
+  render();
+}
 
 function render(){
 
-  const mobile=window.innerWidth<=768;
-  const pages=spreads[current];
+  sheets.forEach((s,i)=>{
 
-  spread.className=pages.length===1?"spread single":"spread";
-  spread.innerHTML="";
+    if(i<index) s.classList.add("flipped");
+    else s.classList.remove("flipped");
 
-  const list=mobile?[pages[0]]:pages;
-
-  list.forEach(n=>{
-
-    const p=document.createElement("div");
-    p.className="page";
-
-    const img=document.createElement("img");
-    img.src=n+".png";
-    img.alt="Page "+n;
-    img.loading="eager";
-
-    p.appendChild(img);
-    spread.appendChild(p);
+    s.style.zIndex=sheets.length-i;
   });
 
-  counter.textContent=`${pages[0]} / ${TOTAL}`;
-  prev.disabled=current===0;
-  next.disabled=current===spreads.length-1;
+  if(mobile())
+    counter.textContent=`${index+1} / 20`;
+  else
+    counter.textContent=`${index+1} / ${sheets.length}`;
 }
 
-function nextPage(){
-  if(current<spreads.length-1){
-    current++;
+next.onclick=()=>{
+
+  if(index<sheets.length-1){
+
+    index++;
+    flipSound();
     render();
   }
-}
+};
 
-function prevPage(){
-  if(current>0){
-    current--;
+prev.onclick=()=>{
+
+  if(index>0){
+
+    index--;
+    flipSound();
     render();
   }
-}
-
-next.onclick=nextPage;
-prev.onclick=prevPage;
+};
 
 window.addEventListener("keydown",e=>{
-  if(e.key==="ArrowRight")nextPage();
-  if(e.key==="ArrowLeft")prevPage();
+
+  if(e.key==="ArrowRight") next.click();
+  if(e.key==="ArrowLeft") prev.click();
 });
 
 let startX=0;
 
-document.querySelector(".book").addEventListener("touchstart",e=>{
+book.addEventListener("touchstart",e=>{
   startX=e.touches[0].clientX;
 },{passive:true});
 
-document.querySelector(".book").addEventListener("touchend",e=>{
+book.addEventListener("touchend",e=>{
+
   const dx=e.changedTouches[0].clientX-startX;
-  if(dx<-60)nextPage();
-  if(dx>60)prevPage();
+
+  if(dx<-45) next.click();
+  if(dx>45) prev.click();
+
 },{passive:true});
 
-window.addEventListener("resize",render);
-window.addEventListener("orientationchange",()=>setTimeout(render,150));
+window.addEventListener("resize",()=>{
 
-render();
+  const realPage=mobile()?index:index*2;
+
+  build();
+
+  if(mobile())
+    index=Math.min(realPage,19);
+  else
+    index=Math.min(Math.floor(realPage/2),9);
+
+  render();
+
+});
+
+window.addEventListener("orientationchange",()=>{
+
+  setTimeout(()=>{
+
+    build();
+
+  },220);
+
+});
+
+build();
 </script>
 
 </body>
