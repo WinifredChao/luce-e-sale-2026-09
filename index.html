@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -57,66 +56,73 @@ body{
 }
 
 .single .page{
-    width:calc(42vw + 42vw);
-    max-width:990px;
+    width:min(70vw,495px);
 }
 
 .controls{
     display:flex;
     align-items:center;
-    gap:22px;
+    gap:18px;
 }
 
 button{
-    width:62px;
-    height:62px;
+    width:64px;
+    height:64px;
     border:none;
     border-radius:50%;
-    background:#8b4d24;
+    background:#8a4b23;
     color:white;
-    font-size:28px;
+    font-size:30px;
     cursor:pointer;
 }
 
-button:hover{background:#6d3818;}
-
-.counter{
-    min-width:128px;
-    height:60px;
-    border-radius:30px;
-    background:#ece9e6;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:26px;
+button:hover{
+    background:#a65b2d;
 }
 
-@media (max-width:700px){
+.counter{
+    background:white;
+    padding:14px 30px;
+    border-radius:24px;
+    font-size:28px;
+    min-width:160px;
+    text-align:center;
+}
 
-    .book{
-        width:98vw;
-        height:82vh;
-    }
+@media (max-width:768px){
 
-    .page{
-        width:47vw;
-    }
+.book{
+    width:100vw;
+    height:auto;
+}
 
-    .single .page{
-        width:94vw;
-    }
+.page{
+    width:96vw;
+    max-width:none;
+}
 
-    button{
-        width:56px;
-        height:56px;
-        font-size:24px;
-    }
+.spread{
+    flex-direction:column;
+}
 
-    .counter{
-        font-size:22px;
-        min-width:110px;
-        height:54px;
-    }
+.spread .page:nth-child(2){
+    display:none;
+}
+
+.single .page{
+    width:96vw;
+}
+
+button{
+    width:54px;
+    height:54px;
+    font-size:24px;
+}
+
+.counter{
+    font-size:18px;
+    min-width:120px;
+}
 }
 </style>
 </head>
@@ -125,68 +131,67 @@ button:hover{background:#6d3818;}
 
 <div class="viewer">
 
-    <div class="book" id="book"></div>
+<div class="book">
+    <div id="spread" class="spread"></div>
+</div>
 
-    <div class="controls">
-        <button id="prev">←</button>
-        <div class="counter" id="counter"></div>
-        <button id="next">→</button>
-    </div>
+<div class="controls">
+    <button id="prev">←</button>
+    <div id="counter" class="counter"></div>
+    <button id="next">→</button>
+</div>
 
 </div>
 
 <script>
-// 圖片數量
-const TOTAL=20;
 
-// 建立顯示順序
-const spreads=[
- [1],
- [2,3],
- [4,5],
- [6,7],
- [8,9],
- [10,11],
- [12,13],
- [14,15],
- [16,17],
- [18,19],
- [20]
-];
+const totalPages=20;
+const spreads=[];
+
+// 封面
+spreads.push([1]);
+
+// 雙頁
+for(let i=2;i<=totalPages;i+=2){
+    if(i+1<=totalPages)
+        spreads.push([i,i+1]);
+    else
+        spreads.push([i]);
+}
 
 let index=0;
 
-const book=document.getElementById("book");
+const spread=document.getElementById("spread");
 const counter=document.getElementById("counter");
 
 function render(){
 
-    book.innerHTML="";
+    const mobile=window.innerWidth<=768;
+    const pages=spreads[index];
 
-    const current=spreads[index];
+    spread.className=pages.length===1?"spread single":"spread";
+    spread.innerHTML="";
 
-    const spread=document.createElement("div");
-    spread.className="spread";
+    const show=mobile?[pages[0]]:pages;
 
-    if(current.length===1) spread.classList.add("single");
+    show.forEach(p=>{
 
-    current.forEach(n=>{
-        const page=document.createElement("div");
-        page.className="page";
+        const div=document.createElement("div");
+        div.className="page";
 
         const img=document.createElement("img");
-        img.src=n+".png";
-        img.alt="Page "+n;
+        img.src=`${p}.png`;
+        img.loading="eager";
 
-        page.appendChild(img);
-        spread.appendChild(page);
+        div.appendChild(img);
+        spread.appendChild(div);
+
     });
 
-    book.appendChild(spread);
+    counter.textContent=`${pages[0]} / ${totalPages}`;
 
-    counter.textContent=current.length===1
-        ?`${current[0]} / ${TOTAL}`
-        :`${current[0]}-${current[1]} / ${TOTAL}`;
+    document.getElementById("prev").disabled=index===0;
+    document.getElementById("next").disabled=index===spreads.length-1;
 }
 
 document.getElementById("prev").onclick=()=>{
@@ -205,25 +210,28 @@ document.getElementById("next").onclick=()=>{
 
 // 鍵盤
 window.addEventListener("keydown",e=>{
-    if(e.key==="ArrowLeft") document.getElementById("prev").click();
-    if(e.key==="ArrowRight") document.getElementById("next").click();
+    if(e.key==="ArrowLeft")document.getElementById("prev").click();
+    if(e.key==="ArrowRight")document.getElementById("next").click();
 });
 
 // 手機滑動
 let startX=0;
 
-book.addEventListener("touchstart",e=>{
+document.querySelector(".book").addEventListener("touchstart",e=>{
     startX=e.touches[0].clientX;
 });
 
-book.addEventListener("touchend",e=>{
+document.querySelector(".book").addEventListener("touchend",e=>{
     const dx=e.changedTouches[0].clientX-startX;
 
-    if(dx<-60) document.getElementById("next").click();
-    if(dx>60) document.getElementById("prev").click();
+    if(dx<-60)document.getElementById("next").click();
+    if(dx>60)document.getElementById("prev").click();
 });
 
+window.addEventListener("resize",render);
+
 render();
+
 </script>
 
 </body>
